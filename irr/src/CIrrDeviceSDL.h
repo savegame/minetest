@@ -117,6 +117,12 @@ public:
 	//! Get the display density in dots per inch.
 	float getDisplayDensity() const override;
 
+#ifdef _AURORAOS_
+	//! Get Real Native Window size
+	virtual core::dimension2d<u32> getWindowSize() const override;
+	virtual void setScreenRotation(u32 angle) override;
+#endif
+
 	void SwapWindow();
 
 	//! Implementation of the linux cursor control
@@ -286,6 +292,11 @@ private:
 	static EM_BOOL MouseLeaveCallback(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData);
 
 #endif
+
+#ifdef _AURORAOS_
+	bool NativeLandscape = false;
+#endif
+
 	// Check if a key is a known special character with no side effects on text boxes.
 	static bool keyIsKnownSpecial(EKEY_CODE irrlichtKey);
 

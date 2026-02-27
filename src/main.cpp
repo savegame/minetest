@@ -123,6 +123,9 @@ static OptionList allowed_options;
 
 int main(int argc, char *argv[])
 {
+#ifdef _AURORAOS_
+	setenv("PULSE_PROP_media.role", "x-maemo", 1);
+#endif 
 	int retval;
 	debug_set_exception_handler();
 

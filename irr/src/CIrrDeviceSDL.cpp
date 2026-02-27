@@ -27,6 +27,11 @@
 #include <emscripten.h>
 #endif
 
+#ifdef _AURORAOS_
+#include <SDL_syswm.h>
+#include <wayland-client.h>
+#endif
+
 #include "CSDLManager.h"
 
 // Since SDL doesn't have mouse keys as keycodes we need to fall back to EKEY_CODE in some cases.
@@ -655,6 +660,15 @@ bool CIrrDeviceSDL::createWindowWithContext()
 		updateSizeAndScale();
 	}
 
+#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_AURORAOS_) && defined(STATIC_SHARED)
+	std::string shared_dir = STATIC_SHARED;
+	shared_dir += "/gamecontrollerdb.txt";
+	if (SDL_GameControllerAddMappingsFromFile() > 0) {
+		os:Printer:log("Load gamecontrollersdb successfull.");
+	} else {
+		os:Printer:log("Can't load gamecontrollersdb.");
+	}
+#endif
 	return true;
 #endif // !_IRR_EMSCRIPTEN_PLATFORM_
 }
@@ -1011,14 +1025,41 @@ bool CIrrDeviceSDL::run()
 		case SDL_RENDER_DEVICE_RESET:
 			os::Printer::log("Received SDL_RENDER_DEVICE_RESET. Rendering is probably broken.", ELL_ERROR);
 			break;
+#if defined(_AURORAOS_)
+		case SDL_DISPLAYEVENT:
+			if (SDL_event.display.event == SDL_DISPLAYEVENT_ORIENTATION) {
+				SDL_DisplayOrientation orientation = 
+					(SDL_DisplayOrientation)SDL_event.display.data1;
 
+				// Send to Luanti  UserEvent with buffer rotation data
+				irrevent.EventType = EET_USER_EVENT;
+				irrevent.UserEvent.UserData1 = EAET_DISPLAY_ORIENTATION_CHANGED;
+				switch (orientation) {
+				case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+				case SDL_ORIENTATION_PORTRAIT:
+					irrevent.UserEvent.UserData2 = 90;
+					setScreenRotation(90);
+					postEventFromUser(irrevent);
+					break;
+				case SDL_ORIENTATION_LANDSCAPE:
+				case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+					irrevent.UserEvent.UserData2 = 270;
+					setScreenRotation(270);
+					postEventFromUser(irrevent);
+					break;
+				default:
+					break;
+				}
+			}
+			break;
+#endif
 		default:
 			break;
 		} // end switch
 		resetReceiveTextInputEvents();
 	} // end while
 
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
+#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_) && !defined(_AURORAOS_)
 	// TODO: Check if the multiple open/close calls are too expensive, then
 	// open/close in the constructor/destructor instead
 
@@ -1150,14 +1191,71 @@ void CIrrDeviceSDL::updateSizeAndScale()
 
 	Width = drawable_w;
 	Height = drawable_h;
+#ifdef _AURORAOS_
+	ScaleX = 1.0;
+	ScaleY = 1.0;
+#endif
 }
 
 //! Get the display density in dots per inch.
 float CIrrDeviceSDL::getDisplayDensity() const
 {
+#ifdef _AURORAOS_
+	float ddpi, hdpi, vdpi;
+	int displayIndex = Window ? SDL_GetWindowDisplayIndex(Window) : 0;
+	if (displayIndex < 0)
+		displayIndex = 0;
+
+	if (SDL_GetDisplayDPI(displayIndex, &ddpi, &hdpi, &vdpi) == 0 && ddpi > 0.0f) {
+		return ddpi;
+	}
+#endif
 	// assume 96 dpi
-	return std::max(ScaleX * 96.0f, ScaleY * 96.0f);
+	return std::max(ScaleX, ScaleY) * 96.0f;
 }
+
+#ifdef _AURORAOS_
+core::dimension2d<u32> CIrrDeviceSDL::getWindowSize() const 
+{
+	int w = 1, h = 1;
+	if (Window)
+		SDL_GetWindowSize(Window, &w, &h);
+
+	return {w > 0 ? w : 1, h > 0 ? h : 1};
+}
+
+void CIrrDeviceSDL::setScreenRotation(u32 angle) {
+	struct wl_surface *surface = nullptr;
+	SDL_SysWMinfo wmInfo;
+	SDL_VERSION(&wmInfo.version);
+	if (SDL_GetWindowWMInfo(Window, &wmInfo)) {
+		if (wmInfo.subsystem == SDL_SYSWM_WAYLAND) {
+			surface = wmInfo.info.wl.surface;
+		}
+	}
+
+	if (surface) {
+		switch (angle) {
+		case 90:
+			fprintf(stderr, "Change buffer transform to WL_OUTPUT_TRANSFORM_270\n");
+			wl_surface_set_buffer_transform(surface, WL_OUTPUT_TRANSFORM_270);
+			break;
+		case 0:
+			fprintf(stderr, "Change buffer transform to WL_OUTPUT_TRANSFORM_NORMAL\n");
+			wl_surface_set_buffer_transform(surface, WL_OUTPUT_TRANSFORM_NORMAL);
+			break;
+		case 270:
+			fprintf(stderr, "Change buffer transform to WL_OUTPUT_TRANSFORM_90\n");
+			wl_surface_set_buffer_transform(surface, WL_OUTPUT_TRANSFORM_90);
+			break;
+		case 180:
+			fprintf(stderr, "Change buffer transform to WL_OUTPUT_TRANSFORM_180\n");
+			wl_surface_set_buffer_transform(surface, WL_OUTPUT_TRANSFORM_180);
+			break;
+		}
+	}
+}
+#endif
 
 void CIrrDeviceSDL::SwapWindow()
 {

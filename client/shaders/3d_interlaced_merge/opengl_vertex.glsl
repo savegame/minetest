@@ -1,4 +1,4 @@
-varying mediump vec4 varTexCoord;
+varying mediump vec2 varTexCoord;
 
 void main(void)
 {

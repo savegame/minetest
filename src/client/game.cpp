@@ -2421,9 +2421,9 @@ void Game::updateCameraDirection(CameraOrientation *cam, float dtime)
 
 		if (m_first_loop_after_window_activation && !g_touchcontrols) {
 			m_first_loop_after_window_activation = false;
-
-			input->setMousePos(driver->getScreenSize().Width / 2,
-				driver->getScreenSize().Height / 2);
+			core::dimension2du screensize = RenderingEngine::getVirtualScreenSize();
+			input->setMousePos(screensize.Width / 2,
+				screensize.Height / 2);
 		} else {
 			updateCameraOrientation(cam, dtime);
 		}
@@ -2459,7 +2459,8 @@ void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 		cam->camera_yaw   += g_touchcontrols->getYawChange()   * sens_scale;
 		cam->camera_pitch += g_touchcontrols->getPitchChange() * sens_scale;
 	} else {
-		v2s32 center(driver->getScreenSize().Width / 2, driver->getScreenSize().Height / 2);
+		core::dimension2du screensize = RenderingEngine::getVirtualScreenSize();
+		v2s32 center(screensize.Width / 2, screensize.Height / 2);
 		v2s32 dist = input->getMousePos() - center;
 
 		if (m_invert_mouse || camera->getCameraMode() == CAMERA_MODE_THIRD_FRONT) {
@@ -4115,6 +4116,7 @@ void Game::drawScene(ProfilerGraph *graph, RunStats *stats)
 		Drawing
 	*/
 	TimeTaker tt_draw("Draw scene", nullptr, PRECISION_MICRO);
+	m_rendering_engine->beginFrame();
 	this->driver->beginScene(true, true, sky_color);
 
 	const LocalPlayer *player = this->client->getEnv().getLocalPlayer();
@@ -4134,7 +4136,8 @@ void Game::drawScene(ProfilerGraph *graph, RunStats *stats)
 	/*
 		Profiler graph
 	*/
-	v2u32 screensize = this->driver->getScreenSize();
+	// v2u32 screensize = this->driver->getScreenSize();
+	v2u32 screensize = RenderingEngine::getVirtualScreenSize();
 
 	if (this->m_game_ui->m_flags.show_profiler_graph)
 		graph->draw(10, screensize.Y - 10, driver, g_fontengine->getFont());
@@ -4149,7 +4152,8 @@ void Game::drawScene(ProfilerGraph *graph, RunStats *stats)
 					NULL);
 	}
 
-	this->driver->endScene();
+	// this->driver->endScene();
+	m_rendering_engine->endFrame();
 
 	stats->drawtime = tt_draw.stop(true);
 	g_profiler->graphAdd("Draw scene [us]", stats->drawtime);

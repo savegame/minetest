@@ -558,9 +558,11 @@ void ClientLauncher::main_menu(MainMenuData *menudata)
 	while (m_rendering_engine->run() && !*kill) {
 		if (!isMenuActive())
 			break;
+		m_rendering_engine->beginFrame();
 		driver->beginScene(true, true, video::SColor(255, 128, 128, 128));
 		m_rendering_engine->get_gui_env()->drawAll();
-		driver->endScene();
+		// driver->endScene();
+		m_rendering_engine->endFrame();
 		framemarker.end();
 		// On some computers framerate doesn't seem to be automatically limited
 		sleep_ms(25);

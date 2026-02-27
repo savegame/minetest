@@ -7,6 +7,9 @@
 #include "client/client.h"
 #include "client/hud.h"
 #include "client/camera.h"
+#ifdef _AURORAOS_
+#include "client/renderingengine.h"
+#endif
 #include <ISceneManager.h>
 
 DrawImageStep::DrawImageStep(u8 texture_index, v2f _offset) :
@@ -28,7 +31,11 @@ void DrawImageStep::run(PipelineContext &context)
 		target->activate(context);
 
 	auto texture = source->getTexture(texture_index);
+#ifdef _AURORAOS_
+	core::dimension2du output_size = RenderingEngine::getVirtualScreenSize();
+#else
 	core::dimension2du output_size = context.device->getVideoDriver()->getScreenSize();
+#endif
 	v2s32 pos(offset.X * output_size.Width, offset.Y * output_size.Height);
 	context.device->getVideoDriver()->draw2DImage(texture, pos);
 }

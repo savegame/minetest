@@ -206,6 +206,9 @@ enum EAPPLICATION_EVENT_TYPE
 	//! The display density changed (only works on SDL).
 	EAET_DPI_CHANGED,
 
+	//! When display orinetation changed (only works on SDL and Wayland)
+	EAET_DISPLAY_ORIENTATION_CHANGED,
+
 	//! No real event, but to get number of event types.
 	EAET_COUNT
 };

@@ -16,6 +16,7 @@
 // include the shadow mapper classes too
 #include "client/shadows/dynamicshadowsrender.h"
 #include <IVideoDriver.h>
+#include <ITexture.h>
 
 #if !IS_CLIENT_BUILD
 #error Do not include in server builds
@@ -58,10 +59,16 @@ public:
 	virtual IShaderUniformSetter *create();
 };
 
-/* Rendering engine class */
+#ifdef _AURORAOS_
+class RotationEventReciever;
+#endif
 
+/* Rendering engine class */
 class RenderingEngine
 {
+#ifdef _AURORAOS_
+	friend class RotationEventReciever;
+#endif
 public:
 	static const video::SColor MENU_SKY_COLOR;
 
@@ -156,7 +163,61 @@ public:
 		return s_singleton->m_receiver->getLastPointerType();
 	}
 
+	// === Screen Rotation API ===
+#ifdef _AURORAOS_
+	/**
+		* Set screen rotation angle.
+		* @param degrees Rotation angle: 0, 90, 180, or 270
+		*/
+	void setScreenRotation(u16 degrees);
+
+	/**
+		* Get current screen rotation angle.
+		*/
+	static u16 getScreenRotation()
+	{
+		if (s_singleton) {
+			return s_singleton->m_screen_rotation;
+		}
+		return 0;
+	}
+
+	/**
+		* Begin rendering frame. Call before driver->beginScene().
+		* Sets up render target for rotation if needed.
+		*/
+	void beginFrame();
+
+	/**
+		* End rendering frame. Call instead of driver->endScene().
+		* Draws rotated framebuffer to screen and calls endScene().
+		*/
+	void endFrame();
+
+	/**
+	* Get the rotation render target texture (or nullptr if rotation not active)
+	*/
+	static video::ITexture* getRotationRenderTarget()
+	{
+		if (s_singleton && s_singleton->m_rotation_active) {
+			return s_singleton->m_rotation_rt;
+		}
+		return nullptr;
+	}
+#endif
+
+	/**
+	* Get virtual screen size (with rotation applied).
+	* Use this for all rendering calculations.
+	*/
+	static v2u32 getVirtualScreenSize()
+	{
+		sanity_check(s_singleton);
+		return s_singleton->_getVirtualScreenSize();
+	}
+
 private:
+	v2u32 _getVirtualScreenSize() const;
 	static void settingChangedCallback(const std::string &name, void *data);
 	v2u32 _getWindowSize() const;
 
@@ -165,4 +226,16 @@ private:
 	video::IVideoDriver *driver;
 	MyEventReceiver *m_receiver = nullptr;
 	static RenderingEngine *s_singleton;
+
+#ifdef _AURORAOS_
+	// === Rotation Framebuffer ===
+	video::ITexture* m_rotation_rt = nullptr;      // Render target texture
+	u16 m_screen_rotation = 0;                      // 0, 90, 180, 270 degrees
+	v2u32 m_framebuffer_size{0, 0};                // Size of the framebuffer
+	bool m_rotation_active = false;                 // Is rotation currently active for this frame
+	RotationEventReciever *m_bufferRotationEventReceiver = nullptr;
+
+	void updateRotationRenderTarget();
+	void drawRotatedFramebuffer();
+#endif
 };

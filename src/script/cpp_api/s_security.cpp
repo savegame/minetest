@@ -413,10 +413,15 @@ void ScriptApiSecurity::setLuaEnv(lua_State *L, int thread)
 
 bool ScriptApiSecurity::isSecure(lua_State *L)
 {
+#ifdef _AURORAOS_
+	// TODO fix me, but in aurora it already in sandbox, no need check path to system dirs
+	return true;
+#else
 	auto *script = ModApiBase::getScriptApiBase(L);
 	if (auto *sec = dynamic_cast<ScriptApiSecurity*>(script))
 		return sec->m_secure;
 	return false;
+#endif
 }
 
 void ScriptApiSecurity::getGlobalsBackup(lua_State *L)
@@ -573,6 +578,12 @@ bool ScriptApiSecurity::checkPath(lua_State *L, const char *path,
 	std::string abs_path = fs::AbsolutePathPartial(path);
 	tracestream << "ScriptApiSecurity: path \"" << path << "\" resolved to \""
 		<< abs_path << "\"" << std::endl;
+
+#ifdef _AURORAOS_
+	if (!write_required) {
+		return true;
+	}
+#endif
 
 	if (abs_path.empty())
 		return false;

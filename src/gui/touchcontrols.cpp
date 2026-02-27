@@ -233,9 +233,7 @@ TouchControls::TouchControls(IrrlichtDevice *device, ISimpleTextureSource *tsrc)
 		m_receiver(device->getEventReceiver()),
 		m_texturesource(tsrc)
 {
-	m_screensize = m_device->getVideoDriver()->getScreenSize();
-	m_button_size = ButtonLayout::getButtonSize(m_screensize);
-
+	m_screensize = RenderingEngine::getWindowSize();
 	readSettings();
 	for (auto name : setting_names)
 		g_settings->registerChangedCallback(name, settingChangedCallback, this);
@@ -664,11 +662,12 @@ void TouchControls::applyJoystickStatus()
 
 void TouchControls::step(float dtime)
 {
-	v2u32 screensize = m_device->getVideoDriver()->getScreenSize();
+	v2u32 screensize = RenderingEngine::getVirtualScreenSize(); //m_device->getVideoDriver()->getScreenSize();
 	s32 button_size = ButtonLayout::getButtonSize(screensize);
 
 	if (m_screensize != screensize || m_button_size != button_size) {
 		m_screensize = screensize;
+		fprintf(stderr, "AURORA: TouchControls: screeen_size changed %ix%i\n", m_screensize.X, m_screensize.Y);
 		m_button_size = button_size;
 		applyLayout(m_layout);
 	}

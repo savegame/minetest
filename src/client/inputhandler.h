@@ -88,6 +88,9 @@ public:
 
 	PointerType getLastPointerType() { return last_pointer_type; }
 
+#ifdef _AURORAOS_
+	void setRotationEventReceiver(IEventReceiver *e);
+#endif
 private:
 	void listenForKey(KeyPress keyCode, GameKeyType action)
 	{
@@ -124,6 +127,11 @@ private:
 
 	// List of keys we listen for
 	std::unordered_map<KeyPress, GameKeyType> keysListenedFor;
+
+#ifdef _AURORAOS_
+	// List of child event receivers
+	IEventReceiver* rotationEventReceiver = nullptr;
+#endif
 
 	// Intentionally not reset by clearInput/releaseAllKeys.
 	bool fullscreen_is_down = false;

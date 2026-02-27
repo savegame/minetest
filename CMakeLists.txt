@@ -98,6 +98,9 @@ if(ANDROID)
 	include(AndroidLibs)
 endif()
 
+if(AURORAOS)
+	add_compile_definitions(_AURORAOS_)
+endif()
 
 if(TRUE)
 	message(STATUS "Using imported IrrlichtMt at subdirectory 'irr'")

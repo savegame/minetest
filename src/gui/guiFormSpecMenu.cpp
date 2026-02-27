@@ -3151,7 +3151,8 @@ void GUIFormSpecMenu::regenerateGui(v2u32 screensize)
 	if (mydata.explicit_size) {
 		// compute scaling for specified form size
 		if (m_lock) {
-			v2u32 current_screensize = RenderingEngine::get_video_driver()->getScreenSize();
+			// v2u32 current_screensize = RenderingEngine::get_video_driver()->getScreenSize();
+			v2u32 current_screensize = RenderingEngine::getVirtualScreenSize();
 			v2u32 delta = current_screensize - m_lockscreensize;
 
 			if (current_screensize.Y > m_lockscreensize.Y)
@@ -3493,7 +3494,8 @@ void GUIFormSpecMenu::drawMenu()
 	/*
 		Draw background color
 	*/
-	v2u32 screenSize = driver->getScreenSize();
+	// v2u32 screenSize = driver->getScreenSize();
+	v2u32 screenSize = RenderingEngine::getVirtualScreenSize();
 	core::rect<s32> allbg(0, 0, screenSize.X, screenSize.Y);
 
 	if (m_bgfullscreen)
@@ -3644,7 +3646,8 @@ void GUIFormSpecMenu::showTooltip(const std::wstring &text,
 	s32 tooltip_width = m_tooltip_element->getTextWidth() + m_btn_height;
 	s32 tooltip_height = m_tooltip_element->getTextHeight() + 5;
 
-	v2u32 screenSize = Environment->getVideoDriver()->getScreenSize();
+	// v2u32 screenSize = Environment->getVideoDriver()->getScreenSize();
+	v2u32 screenSize = RenderingEngine::getVirtualScreenSize();
 	int tooltip_offset_x = m_btn_height;
 	int tooltip_offset_y = m_btn_height;
 

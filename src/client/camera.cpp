@@ -633,7 +633,8 @@ void Camera::drawNametags()
 
 	gui::IGUIFont *font = g_fontengine->getFont();
 	video::IVideoDriver *driver = RenderingEngine::get_video_driver();
-	v2u32 screensize = driver->getScreenSize();
+	// v2u32 screensize = driver->getScreenSize();
+	v2u32 screensize = RenderingEngine::getVirtualScreenSize();
 
 	for (const Nametag *nametag : m_nametags) {
 		// Nametags are hidden in GenericCAO::updateNametag()

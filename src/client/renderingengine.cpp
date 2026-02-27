@@ -26,8 +26,28 @@
 
 RenderingEngine *RenderingEngine::s_singleton = nullptr;
 const video::SColor RenderingEngine::MENU_SKY_COLOR = video::SColor(255, 140, 186, 250);
+v2u32 s_screen_size;
 
 /* Helper classes */
+
+class RotationEventReciever : public IEventReceiver {
+public:
+	RotationEventReciever() {
+	}
+
+	virtual bool OnEvent(const SEvent &event) {
+		if (event.EventType != EET_USER_EVENT)
+			return false;
+		if (event.UserEvent.UserData1 != EAET_DISPLAY_ORIENTATION_CHANGED)
+			return false;
+
+		if (!RenderingEngine::s_singleton)
+			return false;
+		
+		RenderingEngine::s_singleton->setScreenRotation(static_cast<u16>(event.UserEvent.UserData2));
+		return true;
+	}
+};
 
 void FpsControl::reset()
 {
@@ -209,7 +229,7 @@ RenderingEngine::RenderingEngine(MyEventReceiver *receiver)
 	driver = m_device->getVideoDriver();
 	verbosestream << "Using the " << getVideoDriverName(driver->getDriverType()) << " video driver" << std::endl;
 
-	// This changes the minimum allowed number of vertices in a VBO. Default is 500.
+	// This changes the minimum allowed number of vertices in a VBO. Default is 500.setScreenRotation
 	driver->setMinHardwareBufferVertexCount(4);
 
 	m_receiver = receiver;
@@ -218,6 +238,18 @@ RenderingEngine::RenderingEngine(MyEventReceiver *receiver)
 
 	g_settings->registerChangedCallback("fullscreen", settingChangedCallback, this);
 	g_settings->registerChangedCallback("window_maximized", settingChangedCallback, this);
+
+	// s_screen_size = v2u32{1089,2460};
+	s_screen_size =  driver->getScreenSize();
+	// m_screen_rotation = 90;
+	// setScreenRotation(0);
+	setScreenRotation(90);
+	m_device->setScreenRotation(90);
+#ifdef _AURORAOS_
+	m_bufferRotationEventReceiver = new RotationEventReciever();
+	m_receiver->setRotationEventReceiver(m_bufferRotationEventReceiver);
+	// m_device->setEventReceiver(m_bufferRotationEventReceiver);
+#endif
 }
 
 RenderingEngine::~RenderingEngine()
@@ -225,6 +257,17 @@ RenderingEngine::~RenderingEngine()
 	sanity_check(s_singleton == this);
 
 	g_settings->deregisterAllChangedCallbacks(this);
+
+	// === Добавить очистку rotation render target ===
+	if (m_rotation_rt) {
+		driver->removeTexture(m_rotation_rt);
+		m_rotation_rt = nullptr;
+	}
+	if (m_bufferRotationEventReceiver) {
+		delete m_bufferRotationEventReceiver;
+		m_bufferRotationEventReceiver = nullptr;
+	}
+	// === Конец добавления ===
 
 	core.reset();
 	m_device->closeDevice();
@@ -252,7 +295,14 @@ v2u32 RenderingEngine::_getWindowSize() const
 {
 	if (core)
 		return core->getVirtualSize();
+#ifdef _AURORAOS_
+	v2u32 screen = m_device->getWindowSize(); //real window size
+	if (m_screen_rotation == 90 || m_screen_rotation == 270)
+		return v2u32(screen.Y, screen.X);  // Swapped
+	return screen;
+#else
 	return m_device->getVideoDriver()->getScreenSize();
+#endif
 }
 
 void RenderingEngine::setResizable(bool resize)
@@ -310,6 +360,7 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 	auto *driver = get_video_driver();
 
 	driver->setFog(RenderingEngine::MENU_SKY_COLOR);
+	beginFrame();
 	driver->beginScene(true, true, RenderingEngine::MENU_SKY_COLOR);
 	if (g_settings->getBool("menu_clouds")) {
 		g_menuclouds->step(dtime * 3);
@@ -366,7 +417,8 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 	}
 
 	guienv->drawAll();
-	driver->endScene();
+	// driver->endScene();
+	endFrame();
 	guitext->remove();
 }
 
@@ -446,8 +498,9 @@ void RenderingEngine::autosaveScreensizeAndCo(
 	// Don't save the fullscreen size, we want the windowed size.
 	bool fullscreen = RenderingEngine::get_raw_device()->isFullscreen();
 	// Screen size
-	const core::dimension2d<u32> current_screen_size =
-		RenderingEngine::get_video_driver()->getScreenSize();
+	const core::dimension2d<u32> current_screen_size = s_screen_size;
+		// RenderingEngine::get_video_driver()->getScreenSize();
+		// RenderingEngine::getVirtualScreenSize();
 	// Don't replace good value with (0, 0)
 	if (!fullscreen &&
 			current_screen_size != core::dimension2d<u32>(0, 0) &&
@@ -461,4 +514,259 @@ void RenderingEngine::autosaveScreensizeAndCo(
 			->isWindowMaximized();
 	if (is_window_maximized != initial_window_maximized)
 		g_settings->setBool("window_maximized", is_window_maximized);
+}
+
+void RenderingEngine::setScreenRotation(u16 degrees)
+{
+	fprintf(stderr, "Set screen rotation: %i\n", degrees);
+	// Validate input
+	if (degrees != 0 && degrees != 90 && degrees != 180 && degrees != 270) {
+		warningstream << "Invalid screen rotation: " << degrees 
+						<< ", must be 0, 90, 180, or 270" << std::endl;
+		return;
+	}
+
+	if (m_screen_rotation != degrees) {
+		m_screen_rotation = degrees;
+		
+		// Force recreation of render target on next frame
+		if (m_rotation_rt) {
+			driver->removeTexture(m_rotation_rt);
+			m_rotation_rt = nullptr;
+		}
+		
+		infostream << "Screen rotation set to " << degrees << " degrees" << std::endl;
+	}
+}
+
+v2u32 RenderingEngine::_getVirtualScreenSize() const
+{
+	if (m_screen_rotation == 0) {
+		return _getWindowSize();
+	}
+
+	// If rotation is active, return the framebuffer size
+	if (m_framebuffer_size.X > 0 && m_framebuffer_size.Y > 0) {
+		// fprintf(stderr, "Get frame buffer size\n");
+		return m_framebuffer_size;
+	}
+
+	return _getWindowSize();
+}
+
+void RenderingEngine::updateRotationRenderTarget()
+{
+    v2u32 screen = s_screen_size;
+	// fprintf(stderr, "Get Screen size from device : %i x %i\n", screen.X, screen.Y);
+    v2u32 needed_size;
+    
+    // For 90° and 270° rotation, swap width and height
+    if (m_screen_rotation == 90 || m_screen_rotation == 270) {
+        needed_size = v2u32(screen.Y, screen.X);
+    } else {
+        needed_size = screen;
+    }
+    
+    // Check if we need to recreate the render target
+    bool need_recreate = !m_rotation_rt;
+    if (m_rotation_rt) {
+        core::dimension2du current_size = m_rotation_rt->getSize();
+        if (current_size.Width != needed_size.X || current_size.Height != needed_size.Y) {
+            need_recreate = true;
+        }
+    }
+    
+    if (need_recreate) {
+        // Remove old texture if exists
+        if (m_rotation_rt) {
+            driver->removeTexture(m_rotation_rt);
+            m_rotation_rt = nullptr;
+        }
+        
+        // Create new render target texture
+        m_rotation_rt = driver->addRenderTargetTexture(
+            core::dimension2du(needed_size.X, needed_size.Y),
+            "screen_rotation_rt",
+            video::ECF_A8R8G8B8
+        );
+        
+        if (!m_rotation_rt) {
+            errorstream << "Failed to create rotation render target texture" << std::endl;
+            m_screen_rotation = 0;  // Fallback to no rotation
+            return;
+        }
+        
+        infostream << "Created rotation render target: " 
+                   << needed_size.X << "x" << needed_size.Y << std::endl;
+    }
+    
+    m_framebuffer_size = needed_size;
+}
+
+void RenderingEngine::beginFrame()
+{
+    m_rotation_active = false;
+    
+    if (m_screen_rotation == 0) {
+        return;  // No rotation - nothing to do
+    }
+    
+    updateRotationRenderTarget();
+    
+    if (!m_rotation_rt) {
+        return;  // Failed to create render target
+    }
+    
+    // Set the framebuffer as render target
+    driver->setRenderTarget(m_rotation_rt, true, true, video::SColor(0, 0, 0, 0));
+    
+    // Notify Irrlicht about the new viewport size
+    driver->OnResize(core::dimension2du(m_framebuffer_size.X, m_framebuffer_size.Y));
+    
+    m_rotation_active = true;
+}
+
+void RenderingEngine::endFrame()
+{
+    if (!m_rotation_active) {
+        // No rotation was active - just end the scene normally
+        driver->endScene();
+        return;
+    }
+    
+    // Switch back to screen (default framebuffer)
+	v2u32 screen_size = m_device->getWindowSize(); // real SDL window size
+    driver->setRenderTarget(nullptr, true, true, video::SColor(255, 0, 0, 0));
+    driver->OnResize(core::dimension2du(screen_size.X, screen_size.Y));
+    
+    // Draw the rotated framebuffer to screen
+    drawRotatedFramebuffer();
+    
+    driver->endScene();
+    m_rotation_active = false;
+}
+
+void RenderingEngine::drawRotatedFramebuffer()
+{
+    if (!m_rotation_rt) {
+        return;
+    }
+    
+    v2u32 screen_size = driver->getScreenSize();
+    core::dimension2du tex_size = m_rotation_rt->getSize();
+
+    // Define the 4 corners of the texture (UV coordinates)
+    // Order: top-left, top-right, bottom-right, bottom-left
+    core::vector2df uv[4];
+    
+    switch (m_screen_rotation) {
+        case 0:   // No rotation (shouldn't happen, but handle it)
+            uv[0] = core::vector2df(0, 0);  // TL
+            uv[1] = core::vector2df(1, 0);  // TR
+            uv[2] = core::vector2df(1, 1);  // BR
+            uv[3] = core::vector2df(0, 1);  // BL
+            break;
+            
+        case 90:  // Rotate 90° clockwise
+            // Original top-left goes to top-right, etc.
+            uv[0] = core::vector2df(0, 1);  // TL <- was BL
+            uv[1] = core::vector2df(0, 0);  // TR <- was TL
+            uv[2] = core::vector2df(1, 0);  // BR <- was TR
+            uv[3] = core::vector2df(1, 1);  // BL <- was BR
+            break;
+            
+        case 180: // Rotate 180°
+            uv[0] = core::vector2df(1, 1);  // TL <- was BR
+            uv[1] = core::vector2df(0, 1);  // TR <- was BL
+            uv[2] = core::vector2df(0, 0);  // BR <- was TL
+            uv[3] = core::vector2df(1, 0);  // BL <- was TR
+            break;
+            
+        case 270: // Rotate 270° clockwise (= 90° counter-clockwise)
+            uv[0] = core::vector2df(1, 0);  // TL <- was TR
+            uv[1] = core::vector2df(1, 1);  // TR <- was BR
+            uv[2] = core::vector2df(0, 1);  // BR <- was BL
+            uv[3] = core::vector2df(0, 0);  // BL <- was TL
+            break;
+            
+        default:
+            return;
+    }
+    
+    // Screen rectangle (full screen quad)
+    // s32 sw = screen_size.X;
+    // s32 sh = screen_size.Y;
+    
+    // Create vertices for the quad
+    video::S3DVertex vertices[4];
+    
+    video::SColor color(255, 255, 255, 255);
+    
+    // Top-left vertex
+    vertices[0] = video::S3DVertex(
+        -1.0f, 1.0f, 0.0f,   // position (NDC)
+        0, 0, 1,              // normal
+        color,
+        uv[0].X, uv[0].Y      // texcoord
+    );
+    
+    // Top-right vertex
+    vertices[1] = video::S3DVertex(
+        1.0f, 1.0f, 0.0f,
+        0, 0, 1,
+        color,
+        uv[1].X, uv[1].Y
+    );
+    
+    // Bottom-right vertex
+    vertices[2] = video::S3DVertex(
+        1.0f, -1.0f, 0.0f,
+        0, 0, 1,
+        color,
+        uv[2].X, uv[2].Y
+    );
+    
+    // Bottom-left vertex
+    vertices[3] = video::S3DVertex(
+        -1.0f, -1.0f, 0.0f,
+        0, 0, 1,
+        color,
+        uv[3].X, uv[3].Y
+    );
+    
+    // Triangle indices (two triangles for a quad)
+    u16 indices[6] = {0, 1, 2, 0, 2, 3};
+    
+    // Set up material for drawing
+    video::SMaterial material;
+    // material.Lighting = false;
+    material.ZWriteEnable = video::EZW_OFF;
+    material.ZBuffer = video::ECFN_DISABLED;
+    material.TextureLayers[0].Texture = m_rotation_rt;
+    // material.TextureLayers[0].BilinearFilter = true;
+    material.TextureLayers[0].TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+    material.TextureLayers[0].TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+    
+    // Use 2D drawing approach instead (simpler and more reliable)
+    // Reset any transforms
+    driver->setMaterial(material);
+    
+    core::matrix4 oldProj = driver->getTransform(video::ETS_PROJECTION);
+    core::matrix4 oldView = driver->getTransform(video::ETS_VIEW);
+    core::matrix4 oldWorld = driver->getTransform(video::ETS_WORLD);
+    
+    // Set orthographic projection for 2D drawing
+    core::matrix4 proj;
+    proj.buildProjectionMatrixOrthoLH(2.0f, 2.0f, -1.0f, 1.0f);
+    driver->setTransform(video::ETS_PROJECTION, proj);
+    driver->setTransform(video::ETS_VIEW, core::matrix4());
+    driver->setTransform(video::ETS_WORLD, core::matrix4());
+    
+    // Draw the quad
+    driver->drawIndexedTriangleList(vertices, 4, indices, 2);
+    
+    // Restore transforms
+    driver->setTransform(video::ETS_PROJECTION, oldProj);
+    driver->setTransform(video::ETS_VIEW, oldView);
+    driver->setTransform(video::ETS_WORLD, oldWorld);
 }

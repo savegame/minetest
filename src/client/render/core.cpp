@@ -6,6 +6,9 @@
 #include "core.h"
 #include "plain.h"
 #include "client/shadows/dynamicshadowsrender.h"
+#ifdef _AURORAOS_
+#include "client/renderingengine.h"
+#endif
 #include "settings.h"
 
 RenderingCore::RenderingCore(IrrlichtDevice *_device, Client *_client, Hud *_hud,
@@ -22,7 +25,11 @@ RenderingCore::~RenderingCore() = default;
 void RenderingCore::draw(video::SColor _skycolor, bool _show_hud,
 		bool _draw_wield_tool, bool _draw_crosshair)
 {
+#ifdef _AURORAOS_
+	v2u32 screensize = RenderingEngine::getVirtualScreenSize();
+#else
 	v2u32 screensize = device->getVideoDriver()->getScreenSize();
+#endif
 	virtual_size = v2u32(screensize.X * virtual_size_scale.X, screensize.Y * virtual_size_scale.Y);
 
 	PipelineContext context(device, client, hud, shadow_renderer.get(), _skycolor, screensize);

@@ -351,6 +351,9 @@ void GUIEngine::run()
 				last_window_info = window_info;
 			}
 
+			// === Rotation framebuffer: begin ===
+			m_rendering_engine->beginFrame();
+			// === end ===
 			driver->beginScene(true, true, RenderingEngine::MENU_SKY_COLOR);
 
 			if (m_clouds_enabled) {
@@ -370,7 +373,8 @@ void GUIEngine::run()
 			// the menu.
 			drawHeader(driver);
 
-			driver->endScene();
+			// driver->endScene();
+			m_rendering_engine->endFrame();
 		}
 
 		m_script->step();
@@ -422,7 +426,8 @@ void GUIEngine::setFormspecPrepend(const std::string &fs)
 /******************************************************************************/
 void GUIEngine::drawBackground(video::IVideoDriver *driver)
 {
-	v2u32 screensize = driver->getScreenSize();
+	// v2u32 screensize = driver->getScreenSize();
+	v2u32 screensize = RenderingEngine::getVirtualScreenSize();
 
 	video::ITexture* texture = m_textures[TEX_LAYER_BACKGROUND].texture;
 
@@ -477,7 +482,8 @@ void GUIEngine::drawBackground(video::IVideoDriver *driver)
 /******************************************************************************/
 void GUIEngine::drawOverlay(video::IVideoDriver *driver)
 {
-	v2u32 screensize = driver->getScreenSize();
+	// v2u32 screensize = driver->getScreenSize();
+	v2u32 screensize = RenderingEngine::getVirtualScreenSize();
 
 	video::ITexture* texture = m_textures[TEX_LAYER_OVERLAY].texture;
 
@@ -496,7 +502,8 @@ void GUIEngine::drawOverlay(video::IVideoDriver *driver)
 /******************************************************************************/
 void GUIEngine::drawHeader(video::IVideoDriver *driver)
 {
-	core::dimension2d<u32> screensize = driver->getScreenSize();
+	// core::dimension2d<u32> screensize = driver->getScreenSize();
+	core::dimension2d<u32> screensize = RenderingEngine::getVirtualScreenSize();
 
 	video::ITexture* texture = m_textures[TEX_LAYER_HEADER].texture;
 
@@ -555,7 +562,8 @@ void GUIEngine::drawHeader(video::IVideoDriver *driver)
 /******************************************************************************/
 void GUIEngine::drawFooter(video::IVideoDriver *driver)
 {
-	core::dimension2d<u32> screensize = driver->getScreenSize();
+	// core::dimension2d<u32> screensize = driver->getScreenSize();
+	core::dimension2d<u32> screensize = RenderingEngine::getVirtualScreenSize();
 
 	video::ITexture* texture = m_textures[TEX_LAYER_FOOTER].texture;
 

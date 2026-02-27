@@ -242,6 +242,13 @@ public:
 	*/
 	virtual void setWindowSize(const core::dimension2d<u32> &size) = 0;
 
+#ifdef _AURORAOS_
+	//! Get Real Native Window size
+	virtual core::dimension2d<u32> getWindowSize() const { return {1, 1}; };
+
+	virtual void setScreenRotation(u32 angle) { (void)angle; };
+#endif
+
 	//! Minimizes the window if possible.
 	virtual void minimizeWindow() = 0;
 

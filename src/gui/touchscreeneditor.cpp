@@ -294,7 +294,8 @@ bool GUITouchscreenLayout::OnEvent(const SEvent& event)
 		}
 	}
 
-	core::dimension2du screensize = Environment->getVideoDriver()->getScreenSize();
+	// core::dimension2du screensize = Environment->getVideoDriver()->getScreenSize();
+	core::dimension2du screensize = RenderingEngine::getVirtualScreenSize();
 
 	if (event.EventType == EET_MOUSE_INPUT_EVENT) {
 		v2s32 mouse_pos = v2s32(event.MouseInput.X, event.MouseInput.Y);

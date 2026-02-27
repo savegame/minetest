@@ -8,6 +8,7 @@
 #include "debug.h"
 #include "gettime.h"
 #include "client/keycode.h"
+#include "client/renderingengine.h"
 #include "settings.h"
 #include "porting.h"
 #include "client/texturesource.h"
@@ -172,10 +173,11 @@ void GUIChatConsole::draw()
 	if(!IsVisible)
 		return;
 
-	video::IVideoDriver* driver = Environment->getVideoDriver();
+	// video::IVideoDriver* driver = Environment->getVideoDriver();
 
 	// Check screen size
-	v2u32 screensize = driver->getScreenSize();
+	// v2u32 screensize = driver->getScreenSize();
+	v2u32 screensize = RenderingEngine::getVirtualScreenSize();
 	if (screensize != m_screensize)
 	{
 		// screen size has changed

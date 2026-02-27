@@ -312,10 +312,12 @@ int LuaSettings::l_write(lua_State* L)
 	NO_MAP_LOCK_REQUIRED;
 	LuaSettings* o = checkObject<LuaSettings>(L, 1);
 
+#ifndef _AURORAOS_ // do not check allowed paths for AuroraOS
 	if (!o->m_write_allowed) {
 		throw LuaError("Settings: writing " + o->m_filename +
 				" not allowed with mod security on.");
 	}
+#endif
 
 	bool success = o->m_settings->updateConfigFile(o->m_filename.c_str());
 	lua_pushboolean(L, success);

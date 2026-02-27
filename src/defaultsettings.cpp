@@ -20,7 +20,7 @@
  */
 static bool detect_touch()
 {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(_AURORAOS_)
 	return true;
 #elif defined(__linux__)
 	std::string chassis_type;
@@ -83,7 +83,7 @@ void set_default_settings()
 	// Client
 	settings->setDefault("address", "");
 	settings->setDefault("remote_port", "30000");
-#if defined(__unix__) && !defined(__APPLE__) && !defined (__ANDROID__)
+#if defined(__unix__) && !defined(__APPLE__) && !defined (__ANDROID__) && !defined(_AURORAOS_)
 	// On Linux+X11 (not Linux+Wayland or Linux+XWayland), I've encountered a bug
 	// where fake mouse events were generated from touch events if in relative
 	// mouse mode, resulting in the touchscreen controls being instantly disabled
@@ -91,6 +91,8 @@ void set_default_settings()
 	// => We can't switch based on the last input method used.
 	// => Fall back to hardware detection.
 	settings->setDefault("touch_controls", bool_to_cstr(has_touch));
+#elif defined(_AURORAOS_)
+	settings->setDefault("touch_controls", "true");
 #else
 	settings->setDefault("touch_controls", "auto");
 #endif
@@ -317,7 +319,7 @@ void set_default_settings()
 	settings->setDefault("minimap_double_scan_height", "true");
 
 	// Effects
-	settings->setDefault("enable_post_processing", "true");
+	settings->setDefault("enable_post_processing", "false");
 	settings->setDefault("post_processing_texture_bits", "16");
 	settings->setDefault("directional_colored_fog", "true");
 	settings->setDefault("inventory_items_animations", "false");
@@ -371,7 +373,11 @@ void set_default_settings()
 	settings->setDefault("toggle_aux1_key", "false");
 	settings->setDefault("autojump", bool_to_cstr(has_touch));
 	settings->setDefault("continuous_forward", "false");
+#if defined(_AURORAOS_)
+	settings->setDefault("enable_joysticks", "true");
+#else
 	settings->setDefault("enable_joysticks", "false");
+#endif
 	settings->setDefault("joystick_id", "0");
 	settings->setDefault("joystick_type", "auto");
 	settings->setDefault("repeat_joystick_button_time", "0.17");
@@ -409,7 +415,7 @@ void set_default_settings()
 	settings->setDefault("contentdb_enable_updates_indicator", "true");
 	settings->setDefault("contentdb_max_concurrent_downloads", "3");
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(_AURORAOS_)
 	settings->setDefault("contentdb_flag_blacklist", "nonfree, android_default");
 #else
 	settings->setDefault("contentdb_flag_blacklist", "nonfree, desktop_default");
@@ -556,7 +562,7 @@ void set_default_settings()
 	settings->setDefault("clickable_chat_weblinks", "true");
 
 	// Altered settings for Android
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
 	settings->setDefault("screen_w", "0");
 	settings->setDefault("screen_h", "0");
 	settings->setDefault("performance_tradeoffs", "true");
@@ -597,5 +603,46 @@ void set_default_settings()
 		settings->setDefault("mono_font_size", "14");
 	}
 	// Tablets >= 6.0 use non-Android defaults for these settings
+#elif defined(_AURORAOS_)
+	settings->setDefault("undersampling", "2");
+
+	settings->setDefault("performance_tradeoffs", "true");
+	settings->setDefault("max_simultaneous_block_sends_per_client", "10");
+	settings->setDefault("emergequeue_limit_diskonly", "16");
+	settings->setDefault("emergequeue_limit_generate", "16");
+	settings->setDefault("max_block_generate_distance", "5");
+	settings->setDefault("sqlite_synchronous", "1");
+	settings->setDefault("server_map_save_interval", "15");
+	settings->setDefault("client_mapblock_limit", "1500");
+	settings->setDefault("active_block_range", "2");
+	settings->setDefault("viewing_range", "70");
+	settings->setDefault("leaves_style", "simple");
+	// Note: OpenGL ES 2.0 is not guaranteed to provide depth textures,
+	// which we would need for PP.
+	settings->setDefault("enable_post_processing", "false");
+	// still set these two settings in case someone wants to enable it
+	settings->setDefault("debanding", "false");
+	settings->setDefault("post_processing_texture_bits", "8");
+	// We don't have working certificate verification...
+	settings->setDefault("curl_verify_cert", "false");
+	settings->setDefault("touch_interaction_style", "tap_crosshair");
+
+	// Apply settings according to screen size
+	// float x_inches = (float) RenderingEngine::getWindowSize().X /
+	// 		(160.f * RenderingEngine::getDisplayDensity());
+
+	// if (x_inches < 3.7f) {
+	settings->setDefault("hud_scaling", "0.6");
+	settings->setDefault("font_size", "10");
+	settings->setDefault("mono_font_size", "10");
+	// } else if (x_inches < 4.5f) {
+	// 	settings->setDefault("hud_scaling", "0.7");
+	// 	settings->setDefault("font_size", "14");
+	// 	settings->setDefault("mono_font_size", "14");
+	// } else if (x_inches < 6.0f) {
+	// 	settings->setDefault("hud_scaling", "0.85");
+	// 	settings->setDefault("font_size", "14");
+	// 	settings->setDefault("mono_font_size", "14");
+	// }
 #endif
 }

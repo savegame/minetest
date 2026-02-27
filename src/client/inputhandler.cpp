@@ -109,8 +109,48 @@ void MyEventReceiver::setKeyDown(GameKeyType action, bool is_down)
 	}
 }
 
+static SEvent convertTouch(const SEvent &event) {
+	if (event.EventType != EET_TOUCH_INPUT_EVENT)
+		return event;
+
+	SEvent transformed_event = event;
+		
+	u16 rotation = RenderingEngine::getScreenRotation();
+	if (rotation != 0) {
+		v2u32 screen = RenderingEngine::getVirtualScreenSize();
+		s32 x = event.TouchInput.X;
+		s32 y = event.TouchInput.Y;
+
+		switch (rotation) {
+			case 90:
+				transformed_event.TouchInput.X = y;
+				transformed_event.TouchInput.Y = screen.Y - x;
+				break;
+			case 180:
+				transformed_event.TouchInput.X = screen.X - x;
+				transformed_event.TouchInput.Y = screen.Y - y;
+				break;
+			case 270:
+				transformed_event.TouchInput.X = screen.X - y;
+				transformed_event.TouchInput.Y = x;
+				break;
+		}
+
+		// fprintf(stderr, "Screen touched: %i x %i\n", transformed_event.TouchInput.X, transformed_event.TouchInput.Y);
+	}
+	return transformed_event;
+}
+
+void MyEventReceiver::setRotationEventReceiver(IEventReceiver *e)
+{
+	rotationEventReceiver = e;
+}
+
 bool MyEventReceiver::OnEvent(const SEvent &event)
 {
+	if (rotationEventReceiver && rotationEventReceiver->OnEvent(event)) 
+		return true;
+
 	if (event.EventType == EET_LOG_TEXT_EVENT) {
 		static const LogLevel irr_loglev_conv[] = {
 			LL_VERBOSE, // ELL_DEBUG
@@ -174,7 +214,8 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 	if (isMenuActive()) {
 		if (g_touchcontrols)
 			g_touchcontrols->setVisible(false);
-		return g_menumgr.preprocessEvent(event);
+		SEvent converted = convertTouch(event);
+		return g_menumgr.preprocessEvent(converted);
 	}
 
 	// Remember whether each key is down or up
@@ -183,8 +224,10 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 		if (setKeyDown(keyCode, event.KeyInput.PressedDown))
 			return true;
 	} else if (g_touchcontrols && event.EventType == EET_TOUCH_INPUT_EVENT) {
+		// transform touch event if screen is rotated
+		SEvent transformed_event = convertTouch(event);
 		// In case of touchcontrols, we have to handle different events
-		g_touchcontrols->translateEvent(event);
+		g_touchcontrols->translateEvent(transformed_event);
 		return true;
 	} else if (event.EventType == EET_JOYSTICK_INPUT_EVENT) {
 		// joystick may be nullptr if game is launched with '--random-input' parameter

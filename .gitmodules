@@ -1,0 +1,6 @@
+[submodule "LuaJIT"]
+	path = LuaJIT
+	url = https://github.com/LuaJIT/LuaJIT.git
+[submodule "libsdl"]
+	path = libsdl
+	url = git@github.com:savegame/SDL.git

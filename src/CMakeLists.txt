@@ -257,6 +257,15 @@ if(ENABLE_OPENSSL)
 	if(OPENSSL_FOUND)
 		set(USE_OPENSSL TRUE)
 		message(STATUS "OpenSSL's libcrypto SHA enabled.")
+
+		# In AuroraOS it cant find Crypto some times
+		if(NOT TARGET OpenSSL::Crypto)
+			add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+			set_target_properties(OpenSSL::Crypto PROPERTIES
+				IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
+				INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+			)
+		endif()
 	else()
 		message(STATUS "OpenSSL not found!")
 	endif()
@@ -602,6 +611,8 @@ endif()
 # <source dir>/bin/ since Luanti can only run from there.
 if(CMAKE_CROSSCOMPILING)
 	set(EXECUTABLE_OUTPUT_PATH "${CMAKE_BINARY_DIR}/bin")
+elseif(AURORAOS)
+	set(EXECUTABLE_OUTPUT_PATH "${CMAKE_BINARY_DIR}/bin")
 else()
 	set(EXECUTABLE_OUTPUT_PATH "${CMAKE_SOURCE_DIR}/bin")
 endif()
@@ -640,6 +651,9 @@ if(BUILD_CLIENT)
 		add_executable(${PROJECT_NAME})
 	endif()
 
+	if(AURORAOS)
+		list(APPEND PLATFORM_LIBS wayland-client)
+	endif()
 
 	if(CMAKE_GENERATOR STREQUAL "Xcode")
 		# File with used entitlements
@@ -883,6 +897,8 @@ if(USE_LUAJIT)
 			"to build/work correctly in all cases.\n"
 			"THIS APPLIES ESPECIALLY ON macOS OR Linux/aarch64!")
 		message(WARNING ${explanation_msg})
+		message("LUA_INCLUDE_DIR " ${LUA_INCLUDE_DIR})
+		message("LUA_LIBRARY " ${LUA_LIBRARY})
 	endif()
 elseif(NOT MSVC)
 	set(CMAKE_REQUIRED_LIBRARIES "")

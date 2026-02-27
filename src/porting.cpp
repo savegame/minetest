@@ -464,6 +464,60 @@ bool setSystemPaths()
 extern bool setSystemPaths(); // defined in porting_android.cpp
 
 
+#elif _AURORAOS_
+bool setSystemPaths()
+{
+	char buf[BUFSIZ];
+
+	if (!getCurrentExecPath(buf, sizeof(buf))) {
+		FATAL_ERROR("Unable to read bindir");
+		return false;
+	}
+
+	pathRemoveFile(buf, '/');
+	std::string bindir(buf);
+
+	// Find share directory from these.
+	// It is identified by containing the subdirectory "builtin".
+	std::vector<std::string> trylist;
+	std::string static_sharedir = STATIC_SHAREDIR;
+	if (!static_sharedir.empty() && static_sharedir != ".")
+		trylist.push_back(static_sharedir);
+
+	trylist.push_back(bindir + DIR_DELIM ".." DIR_DELIM "share"
+		DIR_DELIM + PROJECT_NAME);
+	trylist.push_back(bindir + DIR_DELIM "..");
+
+	for (auto i = trylist.begin(); i != trylist.end(); ++i) {
+		const std::string &trypath = *i;
+		if (!fs::PathExists(trypath) ||
+			!fs::PathExists(trypath + DIR_DELIM + "builtin")) {
+			warningstream << "system-wide share not found at \""
+					<< trypath << "\""<< std::endl;
+			continue;
+		}
+
+
+		// Warn if was not the first alternative
+		if (i != trylist.begin()) {
+			warningstream << "system-wide share found at \""
+					<< trypath << "\"" << std::endl;
+		}
+
+		path_share = trypath;
+		break;
+	}
+
+	const char *const minetest_user_path = getenv("MINETEST_USER_PATH");
+	if (minetest_user_path && minetest_user_path[0] != '\0') {
+		path_user = std::string(minetest_user_path);
+	} else {
+		path_user = std::string(getHomeOrFail()) + DIR_DELIM ".local/share/"
+			+ AURORA_DATA_DIR;
+	}
+
+	return true;
+}
 //// Linux
 #elif defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
 
@@ -674,7 +728,11 @@ void initializePaths()
 		// Then try $HOME/.cache/PROJECT_NAME
 		// TODO: luanti with migration
 		path_cache = std::string(home_dir) + DIR_DELIM + ".cache"
+#ifdef _AURORAOS_
+			+ DIR_DELIM + AURORA_DATA_DIR;
+#else
 			+ DIR_DELIM + "minetest";
+#endif
 	} else {
 		// If neither works, use $PATH_USER/cache
 		path_cache = path_user + DIR_DELIM + "cache";

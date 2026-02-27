@@ -7,6 +7,7 @@
 #include "client/hud.h"
 #include "IRenderTarget.h"
 #include "SColor.h"
+#include "client/renderingengine.h"
 
 #include <vector>
 #include <memory>
@@ -239,7 +240,14 @@ video::ITexture *DynamicSource::getTexture(u8 index)
 void ScreenTarget::activate(PipelineContext &context)
 {
 	auto driver = context.device->getVideoDriver();
-	driver->setRenderTargetEx(nullptr, m_clear ? video::ECBF_ALL : video::ECBF_NONE, context.clear_color);
+	// Получаем базовый render target (наш rotation framebuffer или nullptr)
+	video::ITexture* base_rt = RenderingEngine::getRotationRenderTarget();
+	if (base_rt) {
+		// set Rotation render target as default
+		driver->setRenderTarget(base_rt, m_clear ? video::ECBF_ALL : video::ECBF_NONE, context.clear_color);
+	} else {
+		driver->setRenderTargetEx(nullptr, m_clear ? video::ECBF_ALL : video::ECBF_NONE, context.clear_color);
+	}
 	driver->OnResize(size);
 	RenderTarget::activate(context);
 }
@@ -254,7 +262,11 @@ void DynamicTarget::activate(PipelineContext &context)
 void ScreenTarget::reset(PipelineContext &context)
 {
 	RenderTarget::reset(context);
-	size = context.device->getVideoDriver()->getScreenSize();
+	// size = context.device->getVideoDriver()->getScreenSize();
+	size = RenderingEngine::getWindowSize();
+	if (size.Width != context.target_size[0] || size.Height != context.target_size[1])
+		fprintf(stderr, "Reset screen target %i x %i\n", context.target_size[0], context.target_size[1]);
+	// size = core::dimension2du(context.target_size[0], context.target_size[1]);
 }
 
 SetRenderTargetStep::SetRenderTargetStep(RenderStep *_step, RenderTarget *_target)
@@ -308,5 +320,6 @@ void RenderPipeline::setRenderSource(RenderSource *source)
 
 void RenderPipeline::setRenderTarget(RenderTarget *target)
 {
+	// fprintf(stderr, "Set render target \n");
 	m_output.setRenderTarget(target);
 }

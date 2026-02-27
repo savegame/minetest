@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Luanti
+Comment=Luanti Game
+Type=Application
+Categories=Game;
+X-Nemo-Application-Type=no-invoker
+Icon=ru.sashikknox.luanti
+Exec=ru.sashikknox.luanti
+
+[X-Application]
+Permissions=Internet;Audio
+OrganizationName=ru.sashikknox
+ApplicationName=luanti
+
+[X-Aurora-Application]
+Orientation=LandscapeInverted;Landscape

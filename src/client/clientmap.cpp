@@ -1390,7 +1390,8 @@ void ClientMap::renderPostFx(CameraMode cam_mode)
 	if (post_color.getAlpha() != 0) {
 		// Draw a full-screen rectangle
 		video::IVideoDriver* driver = SceneManager->getVideoDriver();
-		v2u32 ss = driver->getScreenSize();
+		// v2u32 ss = driver->getScreenSize();
+		v2u32 ss = RenderingEngine::getVirtualScreenSize();
 		core::rect<s32> rect(0,0, ss.X, ss.Y);
 		driver->draw2DRectangle(post_color, rect);
 	}
